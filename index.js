@@ -13,6 +13,11 @@ connectDB();
 
 app.use('/api/user', userRoutes);
 app.use('/api/post', postRoutes);
+app.use("/",(req,res)=>{
+res.json({
+  message:"sucess"
+})
+})
 
 const PORT = process.env.PORT || 5000;
 
