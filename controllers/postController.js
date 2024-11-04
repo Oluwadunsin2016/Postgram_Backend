@@ -251,7 +251,7 @@ exports.searchPost=async (req, res) => {
         { location: { $regex: term, $options: 'i' } },
         { tags: { $regex: term, $options: 'i' } }
       ]
-    }).limit(10).populate("creator","-password").populate("likes"); // Limit results for performance
+    }).limit(10).populate(); // Limit results for performance
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
