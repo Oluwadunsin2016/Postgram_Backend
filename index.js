@@ -6,7 +6,7 @@ const postRoutes = require('./routes/postRoutes');
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: 'https://postgram-backend-vdty.vercel.app',credentials:true })); // Replace with your React app’s origin
+app.use(cors({ credentials:true })); // Replace with your React app’s origin
 app.use(express.urlencoded({ extended: true }));
 
 connectDB();
