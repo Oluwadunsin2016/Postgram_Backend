@@ -4,9 +4,22 @@ const connectDB = require('./config/dbConfig');
 const userRoutes = require('./routes/userRoutes');
 const postRoutes = require('./routes/postRoutes');
 
+const allowedOrigins = ['https://postgram-pi.vercel.app', 'http://localhost:5174'];
 const app = express();
 app.use(express.json());
-app.use(cors({ credentials:true })); // Replace with your React app’s origin
+// app.use(cors({ credentials:true })); // Replace with your React app’s origin
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (allowedOrigins.includes(origin) || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.urlencoded({ extended: true }));
 
 connectDB();
