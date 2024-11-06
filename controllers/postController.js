@@ -1,4 +1,5 @@
 const { cloudinary } = require("../config/ImageUploadConfig");
+const Comment = require("../models/Comment");
 const Post = require("../models/Post");
 const User = require("../models/User");
 
@@ -111,6 +112,7 @@ exports.getPosts = async (req, res) => {
 
     // Fetch posts with pagination, populate user and likes
     const posts = await Post.find()
+    .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate("creator", "-password")
@@ -133,7 +135,13 @@ exports.getPosts = async (req, res) => {
 exports.getPostDetails = async (req, res) => {
   try {
     const { postId } = req.params;
-    const post = await Post.findById(postId).populate("creator","-password").populate("likes");
+    const post = await Post.findById(postId).populate("creator","-password").populate("likes").populate({
+      path: 'comments',
+      populate: {
+        path: 'author',
+        select: '-password',
+      },
+    });
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
@@ -251,10 +259,34 @@ exports.searchPost=async (req, res) => {
         { location: { $regex: term, $options: 'i' } },
         { tags: { $regex: term, $options: 'i' } }
       ]
-    }).limit(10).populate(); // Limit results for performance
+    }).limit(10).populate("creator","-password").populate("likes"); // Limit results for performance
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 }
+
+
+// Add comment
+exports.addComment = async (req, res) => {
+  try {
+    const { postId, text } = req.body;
+    const userId = req.user._id; // Assume req.user._id is populated after authentication
+
+    // Create a new comment
+    const comment = new Comment({
+      text,
+      author: userId,
+      post: postId,
+    });
+    await comment.save();
+
+    // Associate the comment with the post
+    await Post.findByIdAndUpdate(postId, { $push: { comments: comment._id } });
+
+    res.status(201).json({ message: 'Comment added successfully', comment });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 

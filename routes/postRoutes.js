@@ -1,5 +1,5 @@
 const express = require('express');
-const { createPost, updatePost, getPosts, getPostDetails, toggleLikePost, toggleSavePost, deletePost, searchPost } = require('../controllers/postController');
+const { createPost, updatePost, getPosts, getPostDetails, toggleLikePost, toggleSavePost, deletePost, searchPost, addComment } = require('../controllers/postController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { upload } = require('../config/ImageUploadConfig');
 const router = express.Router();
@@ -19,5 +19,6 @@ router.delete('/delete/:postId', authMiddleware, deletePost);
 router.patch("/like/:postId", authMiddleware, toggleLikePost);
 router.patch("/save-post/:postId", authMiddleware, toggleSavePost);
 router.get("/search", authMiddleware, searchPost);
+router.post('/add-comment', authMiddleware, addComment);
 
 module.exports = router;
