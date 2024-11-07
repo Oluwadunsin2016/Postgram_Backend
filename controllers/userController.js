@@ -114,7 +114,7 @@ exports.changeProfileImage = async (req, res) => {
         await user.save();
 
         // Send success response only once
-        res.status(200).json({ message: 'Profile image updated successfully', imageUrl: user.imageUrl });
+        res.status(200).json({ message: 'Profile image updated successfully', user });
       }
     ).end(req.file.buffer); // Pass the file buffer to Cloudinary upload stream
 
