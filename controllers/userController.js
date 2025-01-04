@@ -1,9 +1,17 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { StreamChat } = require("stream-chat");
 const { cloudinary } = require('../config/ImageUploadConfig');
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Stream API credentials
+const apiKey = process.env.API_STREAM_KEY;
+const apiSecret = process.env.API_SECRET;
+
+// Initialize Stream Chat server client
+const serverClient = StreamChat.getInstance(apiKey, apiSecret);
 
 exports.signup = async (req, res) => {
   try {
@@ -188,5 +196,127 @@ exports.unfollowUser = async (req, res) => {
     res.json({ message: 'User unfollowed successfully', currentUser });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getToken=(req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required" });
+  }
+
+  try {
+    const token = serverClient.createToken(userId); // Generate token
+    return res.json({ token });
+  } catch (error) {
+    console.error("Error generating token:", error);
+    return res.status(500).json({ error: "Failed to generate token" });
+  }
+}
+
+exports.getAvailableUsers = async (req, res) => {
+  try {
+    // Get all users from the database and exclude the password field
+    const allUsers = await User.find().select('-password');
+
+    // Get the current user's ID from the request query
+    const { currentUserId } = req.query;
+
+    if (!currentUserId) {
+      return res.status(400).json({ error: 'Current user ID is required' });
+    }
+
+    // Filter out the current user
+    const availableUsers = allUsers.filter((user) => {
+      return user._id.toString() !== currentUserId; // Convert _id to string for comparison
+    });
+
+    res.status(200).json(availableUsers);
+  } catch (error) {
+    console.error('Error fetching available users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+};
+
+
+
+exports.handleOpenMessage = async (req, res) => {
+  const { user, creator } = req.body;
+
+  try {
+    console.log("Incoming data:", { user, creator });
+
+    // 1. Extend the timeout for Stream API requests
+    serverClient.axiosInstance.defaults.timeout = 10000; // Set timeout to 10 seconds
+    console.log("Timeout set to 10 seconds");
+
+    // 2. Ensure buyer and seller exist as Stream Chat users
+    console.log("Before querying users");
+    const existingUsers = await serverClient.queryUsers({
+      id: { $in: [user?.id, creator?.id] },
+    });
+    console.log("Existing users:", existingUsers);
+
+    const existingUserIds = existingUsers.users.map((u) => u.id);
+    console.log("Existing users ids:", existingUserIds);
+
+    const usersToCreate = [];
+    if (!existingUserIds.includes(user?.id)) {
+      usersToCreate.push(user);
+    }
+    if (!existingUserIds.includes(creator?.id)) {
+      usersToCreate.push(creator);
+    }
+
+    if (usersToCreate.length > 0) {
+      console.log("Creating users:", usersToCreate);
+      await serverClient.upsertUsers(usersToCreate);
+    }
+
+    // 3. Check if a channel already exists with both users
+    console.log("Checking for existing channel with both members");
+    // const existingChannel = await serverClient.queryChannels({
+    //   type: "messaging", // Specify channel type
+    //  members: { $all: [user?.id, creator?.id] }, // Ensure both members are present
+    // // member_count: 2, // Ensure the channel only contains these two members
+    // });
+
+    const userChannels = await serverClient.queryChannels({
+  type: "messaging",
+  members: { $in: [user?.id] },
+});
+
+console.log("userChannels:", userChannels);
+
+const matchingChannel = userChannels.find((channel) => {
+console.log("channel:", channel);
+  const memberIds = channel?.members?.map((m) => m.user_id);
+  return memberIds?.includes(user?.id) && memberIds?.includes(creator?.id) && memberIds?.length === 2;
+});
+
+if (!matchingChannel) {
+  const channelId = `${user?.id}_${creator?.id}`.slice(0, 64);
+  const channel = serverClient.channel("messaging", channelId, {
+    name: `Conversation`,
+    members: [user?.id, creator?.id],
+    created_by_id: user?.id,
+  });
+  await channel.create();
+  res.status(201).json({ channelId });
+} else {
+  res.status(200).json({ channelId: matchingChannel.id });
+}
+
+  } catch (error) {
+    console.error("Error in messageSeller:", error.message);
+
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+    } else if (error.code === "ECONNABORTED") {
+      console.error("Request timeout occurred");
+    }
+
+    res.status(500).send("Server error");
   }
 };
