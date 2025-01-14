@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { StreamChat } = require("stream-chat");
 const { cloudinary } = require('../config/ImageUploadConfig');
+require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
